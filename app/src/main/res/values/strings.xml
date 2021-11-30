@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">kafka</string>
+    <string name="select_video">Take shot</string>
+    <string name="send_video">Record</string>
+</resources>
