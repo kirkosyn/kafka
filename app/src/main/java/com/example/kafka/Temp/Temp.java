@@ -121,7 +121,7 @@ public class Temp extends AppCompatActivity {
 
         jsonPlaceHolderApi = retrofit.create(JsonPlaceHolderApi.class);
 //        textViewResult = findViewById(R.id.text_view_result);
-        textureView = findViewById(R.id.textureView);
+//        textureView = findViewById(R.id.textureView);
 //        button = findViewById(R.id.button);
 
         textureView.setSurfaceTextureListener(textureListener);

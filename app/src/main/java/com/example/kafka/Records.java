@@ -5,7 +5,7 @@ import java.util.List;
 public class Records {
     private Object value_schema_id;
     private Object key_schema_id;
-//    private Object value_schema;
+    //    private Object value_schema;
     private List<Record> records;
 
     public Records(List<Record> records) {
@@ -17,17 +17,21 @@ public class Records {
         this.records = records;
     }
 
-    public List<Record> getRecord() {
-        return records;
-    }
-
     public static class Record {
-        private int key;
+        private Key key;
         private Value value;
 
-        public Record(int key, Value value) {
+        public Record(Key key, Value value) {
             this.key = key;
             this.value = value;
+        }
+    }
+
+    public static class Key {
+        String id;
+
+        public Key(String id) {
+            this.id = id;
         }
     }
 
@@ -41,19 +45,105 @@ public class Records {
         }
     }
 
-//    public Object getValue_schema() {
-//        return value_schema;
-//    }
-//    public Object getValue_schema_id() {
-//        return value_schema_id;
-//    }
-
-//    public List<Record> getRecords() {
-//        return records;
-//    }
 }
 
+//
+//    List<Record> records;
+//
+//    public Records(List<Record> records) {
+//        this.records = records;
+//    }
+//
+//    public static class Record {
+//        Key key;
+//        Value value;
+//
+//        public Record(Key key, Value value) {
+//            this.key = key;
+//            this.value = value;
+//        }
+//
+//    }
+//
+//    public static class Key {
+//        private int key_schema_id;
+//        private Data data;
+//
+//        public Key(int key_schema_id, Data data) {
+//            this.key_schema_id = key_schema_id;
+//            this.data = data;
+//        }
+//
+//        public static class Data {
+//            int id;
+//
+//            public Data(int id) {
+//                this.id = id;
+//            }
+//        }
+//    }
+//
+//    public static class Value {
+//        private int value_schema_id;
+//        Data data;
+//
+//        public Value(int value_schema_id, Data data) {
+//            this.value_schema_id = value_schema_id;
+//            this.data = data;
+//        }
+//
+//        public static class Data {
+//            String image;
+//            String name;
+//
+//            public Data(String image, String name) {
+//                this.image = image;
+//                this.name = name;
+//            }
+//        }
+//    }
 
+////////////////////////
+
+//    private Object value_schema_id;
+//    private Object key_schema_id;
+////    private Object value_schema;
+//    private List<Record> records;
+//
+//    public Records(List<Record> records) {
+//        this.value_schema_id = 1;
+//        this.key_schema_id = 3;
+////        this.value_schema = "{\"type\": \"object\", " +
+////                            "\"properties\": {\"name\": {\"type\": \"string\"}, " +
+////                            "\"image\": {\"type\": \"string\"}}}";
+//        this.records = records;
+//    }
+//
+//    public List<Record> getRecord() {
+//        return records;
+//    }
+//
+//    public static class Record {
+//        private int key;
+//        private Value value;
+//
+//        public Record(int key, Value value) {
+//            this.key = key;
+//            this.value = value;
+//        }
+//    }
+//
+//    public static class Value {
+//        String name;
+//        String image;
+//
+//        public Value(String name, String image) {
+//            this.name = name;
+//            this.image = image;
+//        }
+//    }
+
+/////////////////////
 
 //    Schema schema;
 //    Payload payload;

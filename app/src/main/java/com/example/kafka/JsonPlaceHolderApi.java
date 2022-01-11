@@ -1,23 +1,45 @@
 package com.example.kafka;
 
-import java.util.List;
-
 import retrofit2.Call;
+import retrofit2.Response;
 import retrofit2.http.Body;
+import retrofit2.http.DELETE;
 import retrofit2.http.GET;
 import retrofit2.http.Headers;
 import retrofit2.http.POST;
 
 public interface JsonPlaceHolderApi {
+    String uploadImagesTopic = "images";
+    String classificationResultTopic = "classificationResult";
+    String trainCNNTopic = "trainCNN";
+    String groupName = "";
+    String instance = "";
 
-    @GET("topics")
-    Call<List<String>> getTopics();
 
     @Headers({
             "Content-Type:application/vnd.kafka.json.v2+json"
     })
-    @POST("topics/images")
+    @POST("topics/" + uploadImagesTopic)
     Call<Records> uploadImage(@Body Records records);
-//    Call<ResponseBody> uploadImage(@Part("name") RequestBody fullName, @Part MultipartBody.Part image);
 
+    @Headers({
+            "Content-Type:application/vnd.kafka.json.v2+json"
+    })
+    @POST("consumers/" + groupName + "/instances/" + instance + "/subscription")
+    Call<Subscription> subscribe(@Body Subscription subscription);
+
+    @DELETE("consumers/" + groupName + "/instances/" + instance + "/subscription")
+    Call<Response> unsubscribe();
+
+    @Headers({
+            "Content-Type:application/vnd.kafka.json.v2+json"
+    })
+    @POST("consumers/" + groupName + "/instances/" + instance + "/assignments")
+    Call<Partitions> assignPartition(@Body Partitions partitions);
+
+    @Headers({
+            "Content-Type:application/vnd.kafka.json.v2+json"
+    })
+    @GET("consumers/" + groupName + "/instances/" + instance + "/records")
+    Call<Response> fetchDataFromTopic();
 }
