@@ -30,7 +30,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
-import com.example.kafka.JsonPlaceHolderApi;
+import com.example.kafka.RestApi;
 import com.example.kafka.R;
 
 import java.nio.ByteBuffer;
@@ -87,7 +87,7 @@ public class Temp extends AppCompatActivity {
 //    int VIDEO = 201;
 //    File imageFile;
 
-    JsonPlaceHolderApi jsonPlaceHolderApi;
+    RestApi restApi;
     CameraDevice cameraDevice;
     CameraCaptureSession cameraCaptureSession;
     //    CaptureRequest captureRequest;
@@ -119,7 +119,7 @@ public class Temp extends AppCompatActivity {
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
 
-        jsonPlaceHolderApi = retrofit.create(JsonPlaceHolderApi.class);
+        restApi = retrofit.create(RestApi.class);
 //        textViewResult = findViewById(R.id.text_view_result);
 //        textureView = findViewById(R.id.textureView);
 //        button = findViewById(R.id.button);
@@ -411,7 +411,7 @@ public class Temp extends AppCompatActivity {
 //        Records records = new Records(recordList);
 //        Records records = new Records();
 //
-//        Call<Records> call = jsonPlaceHolderApi.uploadImage(records);
+//        Call<Records> call = restApi.uploadImage(records);
 //        call.enqueue(new Callback<Records>() {
 //            @Override
 //            public void onResponse(Call<Records> call, Response<Records> response) {

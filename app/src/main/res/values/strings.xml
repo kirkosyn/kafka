@@ -3,4 +3,5 @@
     <string name="select_video">Take shot</string>
     <string name="send_video">Record</string>
     <string name="classify">Classify</string>
+    <string name="trainCNN">TRAIN</string>
 </resources>

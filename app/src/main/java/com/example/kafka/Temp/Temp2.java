@@ -38,7 +38,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
-import com.example.kafka.JsonPlaceHolderApi;
+import com.example.kafka.RestApi;
 import com.example.kafka.MainActivity;
 import com.example.kafka.R;
 import com.example.kafka.Records;
