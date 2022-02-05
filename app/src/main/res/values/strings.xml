@@ -1,7 +1,9 @@
 <resources>
     <string name="app_name">kafka</string>
-    <string name="select_video">Take shot</string>
+    <string name="select_video">Classify</string>
     <string name="send_video">Record</string>
     <string name="classify">Classify</string>
-    <string name="trainCNN">TRAIN</string>
+    <string name="trainCNN">Train</string>
+    <string name="editLabel">Add label</string>
+    <string name="trainCNNStart">Start</string>
 </resources>

@@ -1,15 +1,18 @@
 package com.example.kafka;
 
 
-import android.annotation.SuppressLint;
-import android.media.Image;
+import static java.util.Optional.ofNullable;
+
+import android.app.Activity;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
-import android.util.Log;
+import android.util.Size;
 import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.TextView;
+import android.widget.Spinner;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
@@ -21,29 +24,29 @@ import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.ImageProxy;
-import androidx.camera.core.Logger;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
-import androidx.lifecycle.LifecycleOwner;
 
+import com.example.kafka.Objects.ClassificationResult;
+import com.example.kafka.Objects.Consumer;
+import com.example.kafka.Objects.Partitions;
+import com.example.kafka.Objects.RecordsPosted;
+import com.example.kafka.Objects.RecordsToPost;
+import com.example.kafka.Objects.Subscription;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
-import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
-import com.google.gson.reflect.TypeToken;
-import com.google.gson.stream.JsonReader;
 
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.StringReader;
-import java.lang.reflect.Type;
+import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Calendar;
@@ -52,7 +55,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
-import kotlin.jvm.internal.TypeReference;
 import okhttp3.OkHttpClient;
 import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Call;
@@ -66,34 +68,40 @@ public class MainActivity extends AppCompatActivity implements ImageAnalysis.Ana
     private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
 
     Button takeShot;
-    Button classify;
     Button trainCNN;
-    TextView label;
+    Spinner label;
     PreviewView previewView;
-    private boolean isTakingShot;
+    private boolean isClassifying;
     private String labelText;
     private ImageCapture imageCapture;
     private ImageAnalysis imageAnalysis;
     private RestApi restApi;
     private java.util.logging.Logger logger = java.util.logging.Logger.getGlobal();
+    private int numberOfPhotos;
+    private int numberOfPhotosToTrain;
+    ArrayAdapter<String> adapter;
+    String timestamp;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        setTitle("Detection App");
 
         setRESTConnection();
 
         takeShot = findViewById(R.id.takeShot);
         previewView = findViewById(R.id.previewView);
-        classify = findViewById(R.id.classify);
         trainCNN = findViewById(R.id.trainCNN);
         label = findViewById(R.id.label);
-        labelText = "example";
+        labelText = "";
+        numberOfPhotos = 1;
+        numberOfPhotosToTrain = 10;
 
         takeShot.setOnClickListener(takeShotBtnClick);
-        classify.setOnClickListener(classifyBtnClick);
         trainCNN.setOnClickListener(trainCNNBtnClick);
+        populateSpinner();
+
         cameraProviderFuture = ProcessCameraProvider.getInstance(this);
         cameraProviderFuture.addListener(() -> {
             try {
@@ -103,6 +111,26 @@ public class MainActivity extends AppCompatActivity implements ImageAnalysis.Ana
                 e.printStackTrace();
             }
         }, getExecutor());
+    }
+
+    private void populateSpinner() {
+        List<String> str = new ArrayList<>();
+        int id = getResources().getIdentifier("labels", "raw", getPackageName());
+        try {
+            BufferedReader in = new BufferedReader(new InputStreamReader(getResources().openRawResource(id)));
+            String line = in.readLine().toLowerCase();
+            while (line != null) {
+                str.add(line);
+                line = in.readLine();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        str = str.stream().map(x -> x.toLowerCase()).collect(Collectors.toList());
+        adapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, str);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        label.setAdapter(adapter);
     }
 
     private void setRESTConnection() {
@@ -118,6 +146,7 @@ public class MainActivity extends AppCompatActivity implements ImageAnalysis.Ana
                 .build();
 
         restApi = retrofit.create(RestApi.class);
+        createConsumer();
     }
 
     private Executor getExecutor() {
@@ -140,64 +169,55 @@ public class MainActivity extends AppCompatActivity implements ImageAnalysis.Ana
         imageAnalysis = new ImageAnalysis.Builder()
                 .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+//                .setTargetResolution(new Size(224, 224))
                 .build();
 
         cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageCapture, imageAnalysis);
     }
 
     private View.OnClickListener takeShotBtnClick = view -> {
-        isTakingShot = true;
-        if (label.getVisibility() == View.VISIBLE)
-            label.setVisibility(View.INVISIBLE);
+        isClassifying = true;
+
         Handler mHandler = new Handler();
-        for (int i = 0; i < 1; i++) {
-            mHandler.postDelayed(() -> capturePhoto(), 1500);
+        for (int i = 0; i < numberOfPhotos; i++) {
+            mHandler.postDelayed(() -> capturePhoto(), 1000);
         }
     };
 
-    private View.OnClickListener classifyBtnClick = view -> {
-        isTakingShot = false;
-        if (label.getVisibility() == View.INVISIBLE)
-            label.setVisibility(View.VISIBLE);
-        createConsumer();
-//        unsubscribe();
-    };
-
     private View.OnClickListener trainCNNBtnClick = view -> {
-        isTakingShot = false;
-        if (label.getVisibility() == View.VISIBLE)
-            label.setVisibility(View.INVISIBLE);
+        isClassifying = false;
         Handler mHandler = new Handler();
-        for (int i = 0; i < 1; i++) {
+        for (int i = 0; i < numberOfPhotosToTrain; i++) {
             mHandler.postDelayed(() -> capturePhoto(), 1500);
         }
     };
 
     private void createConsumer() {
         logger.info("CREATING CONSUMER");
-        Consumer consumer = new Consumer("testConsumer", "json", "earliest", "false");
-        Call<Consumer> call = restApi.createCustomer(consumer);
-        call.enqueue(new Callback<Consumer>() {
+        Consumer.ConsumerToCreate consumer = new Consumer.ConsumerToCreate("testConsumer", "json", "earliest", "false");
+        Call<Consumer.CreatedConsumer> call = restApi.createCustomer(consumer);
+        call.enqueue(new Callback<Consumer.CreatedConsumer>() {
             @Override
-            public void onResponse(Call<Consumer> call, Response<Consumer> response) {
+            public void onResponse(Call<Consumer.CreatedConsumer> call, Response<Consumer.CreatedConsumer> response) {
                 if (!response.isSuccessful()) {
                     try {
                         logger.severe("Code: " + response.code() + "\n" + response.errorBody().string() + "\n" + response.message());
-//                        assignPartition();
-                        subscribe();
+//                        subscribe();
+                        assignPartition();
                     } catch (IOException e) {
                         logger.severe(e.getMessage());
                     }
                     return;
                 }
                 logger.info("CREATED CONSUMER");
-                logger.info(response.message());
-//                assignPartition();
-                subscribe();
+                logger.info("instance_id: " + ofNullable(response.body().getInstance_id()).orElse(""));
+                logger.info("base_uri: " + ofNullable(response.body().getBase_uri()).orElse(""));
+//                subscribe();
+                assignPartition();
             }
 
             @Override
-            public void onFailure(Call<Consumer> call, Throwable t) {
+            public void onFailure(Call<Consumer.CreatedConsumer> call, Throwable t) {
                 logger.severe(t.getMessage());
 
             }
@@ -208,15 +228,15 @@ public class MainActivity extends AppCompatActivity implements ImageAnalysis.Ana
         logger.info("SUBSCRIBING");
         List<String> topics = new ArrayList<>();
         topics.add(RestApi.getClassificationResultTopic());
+        topics.add(RestApi.getTrainCNNTopic());
         Subscription subscription = new Subscription(topics);
-        Call<Subscription> call = restApi.subscribe(subscription);
-        call.enqueue(new Callback<Subscription>() {
+        Call<String> call = restApi.subscribe(subscription);
+        call.enqueue(new Callback<String>() {
             @Override
-            public void onResponse(Call<Subscription> call, Response<Subscription> response) {
+            public void onResponse(Call<String> call, Response<String> response) {
                 if (!response.isSuccessful()) {
                     try {
                         logger.severe("Code: " + response.code() + "\n" + response.errorBody().string() + "\n" + response.message());
-                        fetchData();
                     } catch (IOException e) {
                         logger.severe(e.getMessage());
                     }
@@ -224,13 +244,88 @@ public class MainActivity extends AppCompatActivity implements ImageAnalysis.Ana
                 }
                 logger.info("SUBSCRIBED");
                 logger.info(response.message());
-                fetchData();
+                seekToLastOffset();
+//                seekToFirstOffset();
             }
 
             @Override
-            public void onFailure(Call<Subscription> call, Throwable t) {
+            public void onFailure(Call<String> call, Throwable t) {
                 logger.severe(t.getMessage());
+            }
+        });
+    }
 
+    private void seekToFirstOffset() {
+        logger.info("SEEKING TO FIRST OFFSET");
+        List<Partitions.Partition> listOfPartitions = new ArrayList<>();
+        listOfPartitions.add(new Partitions.Partition(RestApi.getClassificationResultTopic(), 0));
+//        listOfPartitions.add(new Partitions.Partition(RestApi.getClassificationResultTopic(), 1));
+//        listOfPartitions.add(new Partitions.Partition(RestApi.getClassificationResultTopic(), 2));
+//        listOfPartitions.add(new Partitions.Partition(RestApi.getClassificationResultTopic(), 3));
+//        listOfPartitions.add(new Partitions.Partition(RestApi.getClassificationResultTopic(), 4));
+//        listOfPartitions.add(new Partitions.Partition(RestApi.getClassificationResultTopic(), 5));
+//        listOfPartitions.add(new Partitions.Partition(RestApi.getClassificationResultTopic(), 6));
+//        listOfPartitions.add(new Partitions.Partition(RestApi.getClassificationResultTopic(), 7));
+//        listOfPartitions.add(new Partitions.Partition(RestApi.getClassificationResultTopic(), 8));
+//        listOfPartitions.add(new Partitions.Partition(RestApi.getClassificationResultTopic(), 9));
+        Partitions partitions = new Partitions(listOfPartitions);
+        Call<String> call = restApi.seekToFirstOffset(partitions);
+        call.enqueue(new Callback<String>() {
+            @Override
+            public void onResponse(Call<String> call, Response<String> response) {
+                if (!response.isSuccessful()) {
+                    try {
+                        logger.severe("Code: " + response.code() + "\n" + response.errorBody().string() + "\n" + response.message());
+                    } catch (IOException e) {
+                        logger.severe(e.getMessage());
+                    }
+                    return;
+                }
+                logger.info("SOUGHT TO FIRST OFFSET");
+                logger.info(response.message());
+            }
+
+            @Override
+            public void onFailure(Call<String> call, Throwable t) {
+                logger.severe(t.getMessage());
+            }
+        });
+    }
+
+    private void seekToLastOffset() {
+        logger.info("SEEKING TO LAST OFFSET");
+        List<Partitions.Partition> listOfPartitions = new ArrayList<>();
+        listOfPartitions.add(new Partitions.Partition(RestApi.getClassificationResultTopic(), 0));
+        listOfPartitions.add(new Partitions.Partition(RestApi.getTrainCNNTopic(), 0));
+//        listOfPartitions.add(new Partitions.Partition(RestApi.getClassificationResultTopic(), 1));
+//        listOfPartitions.add(new Partitions.Partition(RestApi.getClassificationResultTopic(), 2));
+//        listOfPartitions.add(new Partitions.Partition(RestApi.getClassificationResultTopic(), 3));
+//        listOfPartitions.add(new Partitions.Partition(RestApi.getClassificationResultTopic(), 4));
+//        listOfPartitions.add(new Partitions.Partition(RestApi.getClassificationResultTopic(), 5));
+//        listOfPartitions.add(new Partitions.Partition(RestApi.getClassificationResultTopic(), 6));
+//        listOfPartitions.add(new Partitions.Partition(RestApi.getClassificationResultTopic(), 7));
+//        listOfPartitions.add(new Partitions.Partition(RestApi.getClassificationResultTopic(), 8));
+//        listOfPartitions.add(new Partitions.Partition(RestApi.getClassificationResultTopic(), 9));
+        Partitions partitions = new Partitions(listOfPartitions);
+        Call<String> call = restApi.seekToLastOffset(partitions);
+        call.enqueue(new Callback<String>() {
+            @Override
+            public void onResponse(Call<String> call, Response<String> response) {
+                if (!response.isSuccessful()) {
+                    try {
+                        logger.severe("Code: " + response.code() + "\n" + response.errorBody().string() + "\n" + response.message());
+                    } catch (IOException e) {
+                        logger.severe(e.getMessage());
+                    }
+                    return;
+                }
+                logger.info("SOUGHT TO LAST OFFSET");
+                logger.info(response.message());
+            }
+
+            @Override
+            public void onFailure(Call<String> call, Throwable t) {
+                logger.severe(t.getMessage());
             }
         });
     }
@@ -239,15 +334,15 @@ public class MainActivity extends AppCompatActivity implements ImageAnalysis.Ana
         logger.info("ASSIGNING PARTITION");
         List<Partitions.Partition> listOfPartitions = new ArrayList<>();
         listOfPartitions.add(new Partitions.Partition(RestApi.getClassificationResultTopic(), 0));
+        listOfPartitions.add(new Partitions.Partition(RestApi.getTrainCNNTopic(), 0));
         Partitions partitions = new Partitions(listOfPartitions);
-        Call<Partitions> call = restApi.assignPartition(partitions);
-        call.enqueue(new Callback<Partitions>() {
+        Call<String> call = restApi.assignPartition(partitions);
+        call.enqueue(new Callback<String>() {
             @Override
-            public void onResponse(Call<Partitions> call, Response<Partitions> response) {
+            public void onResponse(Call<String> call, Response<String> response) {
                 if (!response.isSuccessful()) {
                     try {
                         logger.severe("Code: " + response.code() + "\n" + response.errorBody().string() + "\n" + response.message());
-                        fetchData();
                     } catch (IOException e) {
                         logger.severe(e.getMessage());
                     }
@@ -255,18 +350,20 @@ public class MainActivity extends AppCompatActivity implements ImageAnalysis.Ana
                 }
                 logger.info("ASSIGNED PARTITION");
                 logger.info(response.message());
-                fetchData();
+                seekToLastOffset();
             }
 
             @Override
-            public void onFailure(Call<Partitions> call, Throwable t) {
+            public void onFailure(Call<String> call, Throwable t) {
                 logger.severe(t.getMessage());
             }
         });
     }
 
     private void setLabel(String text) {
-        label.setText(text);
+        logger.info(text);
+        Handler mHandler = new Handler();
+        mHandler.postDelayed(() -> label.setSelection(adapter.getPosition(text.toLowerCase())), 1000);
     }
 
     private void fetchData() {
@@ -283,18 +380,18 @@ public class MainActivity extends AppCompatActivity implements ImageAnalysis.Ana
                     }
                     return;
                 }
+                logger.info("FETCHED DATA");
+
                 List<String> results = response.body()
                         .stream()
                         .map(x -> x.getValue().getLabel())
                         .collect(Collectors.toList());
-
-                logger.info("FETCHED DATA");
-                Handler mHandler = new Handler();
-                for (String result : results) {
-                    logger.info(result);
-                    mHandler.postDelayed(() -> setLabel(result), 1000);
+                results.stream().map(x -> ofNullable(x).orElse("")).forEach(x -> setLabel(x));
+                if (!results.isEmpty()) {
+                    DateFormat sdf = new SimpleDateFormat("yyyyMMddHHmmss");
+                    String timestamp2 = sdf.format(Calendar.getInstance().getTime());
+                    logger.info("ANSWER: \npre: " + timestamp + ", aft: " + timestamp2);
                 }
-                unsubscribe();
             }
 
             @Override
@@ -384,8 +481,6 @@ public class MainActivity extends AppCompatActivity implements ImageAnalysis.Ana
     @RequiresApi(api = Build.VERSION_CODES.O)
     @Override
     public void analyze(@NonNull ImageProxy image) {
-        Log.d("kafka_analyze", "analyze: got frame at: " + image.getImageInfo().getTimestamp());
-
         ByteBuffer buffer = image.getPlanes()[0].getBuffer();
         byte[] bb = toByteArray(buffer);
 
@@ -394,11 +489,22 @@ public class MainActivity extends AppCompatActivity implements ImageAnalysis.Ana
 
         Gson gson = builder.create();
         String json = gson.toJson(bb);
-
+        labelText = label.getSelectedItem().toString();
+        logger.info(labelText);
         sendOneImage(json, labelText);
 
         buffer.clear();
         image.close();
+    }
+
+    public class SpinnerActivity extends Activity implements AdapterView.OnItemSelectedListener {
+        public void onItemSelected(AdapterView<?> parent, View view,
+                                   int pos, long id) {
+            labelText = (String) parent.getItemAtPosition(pos);
+        }
+
+        public void onNothingSelected(AdapterView<?> parent) {
+        }
     }
 
     @NonNull
@@ -410,42 +516,63 @@ public class MainActivity extends AppCompatActivity implements ImageAnalysis.Ana
     }
 
     private void sendOneImage(String image, String name) {
-//        Records.Key key = new Records.Key(3, new Records.Key.Data(1));
-//        Records.Value value = new Records.Value(1, new Records.Value.Data(image, name));
         logger.info("SENDING IMAGE");
-        Records.Key key = new Records.Key(Calendar.getInstance().getTime().toString());
-        Records.Value value = new Records.Value(name, image);
+        DateFormat sdf = new SimpleDateFormat("yyyyMMddHHmmss");
+        timestamp = sdf.format(Calendar.getInstance().getTime());
+        RecordsToPost.Key key = new RecordsToPost.Key(timestamp);
+        RecordsToPost.Value value = new RecordsToPost.Value(name, image);
 
-        List<Records.Record> recordsList = new ArrayList<>();
-        recordsList.add(new Records.Record(key, value));
-        Records records = new Records(recordsList);
+        List<RecordsToPost.Record> recordsList = new ArrayList<>();
+        recordsList.add(new RecordsToPost.Record(key, value));
+        RecordsToPost records = new RecordsToPost(recordsList);
 
-        Call<Records> call;
-        if (isTakingShot) {
-            call = restApi.uploadImage(records);
+        Call<RecordsPosted> call;
+        if (isClassifying) {
+            call = restApi.postData(records);
         } else {
             call = restApi.trainCNN(records);
         }
 
-        call.enqueue(new Callback<Records>() {
+        call.enqueue(new Callback<RecordsPosted>() {
             @Override
-            public void onResponse(Call<Records> call, Response<Records> response) {
+            public void onResponse(Call<RecordsPosted> call, Response<RecordsPosted> response) {
                 if (!response.isSuccessful()) {
                     try {
                         logger.severe("Code: " + response.code() + "\n" + response.errorBody().string() + "\n" + response.message());
                     } catch (IOException e) {
                         logger.severe(e.getMessage());
                     }
-                    logger.info("IMAGE SENT");
-                    logger.info(response.message());
-                    return;
                 }
+                logger.info("IMAGE SENT");
+                logger.info(ofNullable(response.body().getKey_schema_id()).orElse("").toString());
+                logger.info(ofNullable(response.body().getValue_schema_id()).orElse("").toString());
+                logger.info(String.valueOf(response.body().getOffsets().get(0).getOffset()));
+                logger.info(String.valueOf(response.body().getOffsets().get(0).getPartition()));
             }
 
             @Override
-            public void onFailure(Call<Records> call, Throwable t) {
+            public void onFailure(Call<RecordsPosted> call, Throwable t) {
                 logger.severe(t.getMessage());
             }
         });
+
+        if (isClassifying) {
+            Handler mHandler = new Handler();
+            for (int i = 0; i < 100; i++) {
+                mHandler.postDelayed(() -> fetchData(), 500);
+            }
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        unsubscribe();
+        super.onDestroy();
+    }
+
+    @Override
+    public void onBackPressed() {
+        unsubscribe();
+        super.onBackPressed();
     }
 }

@@ -1,9 +1,15 @@
 package com.example.kafka;
 
+import com.example.kafka.Objects.ClassificationResult;
+import com.example.kafka.Objects.Consumer;
+import com.example.kafka.Objects.Partitions;
+import com.example.kafka.Objects.RecordsPosted;
+import com.example.kafka.Objects.RecordsToPost;
+import com.example.kafka.Objects.Subscription;
+
 import java.util.List;
 
 import retrofit2.Call;
-import retrofit2.Response;
 import retrofit2.http.Body;
 import retrofit2.http.DELETE;
 import retrofit2.http.GET;
@@ -18,6 +24,7 @@ public interface RestApi {
     String instance = "testConsumer";
     String clusterId = "1K-BtNAuQ-CniFE38E2WjA";
     String consumerGroupId = "testGroup";
+    String partitionId = "0";
 
     static String getUploadImagesTopic() {
         return uploadImagesTopic;
@@ -28,32 +35,32 @@ public interface RestApi {
     }
 
     static String getTrainCNNTopic() {
-        return uploadImagesTopic;
+        return trainCNNTopic;
     }
 
     @Headers({
             "Content-Type:application/vnd.kafka.json.v2+json"
     })
-    @POST("topics/" + uploadImagesTopic)
-    Call<Records> uploadImage(@Body Records records);
+    @POST("topics/" + uploadImagesTopic + "/partitions/" + partitionId)
+    Call<RecordsPosted> postData(@Body RecordsToPost records);
 
     @Headers({
             "Content-Type:application/vnd.kafka.json.v2+json"
     })
     @POST("topics/" + trainCNNTopic)
-    Call<Records> trainCNN(@Body Records records);
+    Call<RecordsPosted> trainCNN(@Body RecordsToPost records);
 
     @Headers({
             "Content-Type:application/vnd.kafka.json.v2+json"
     })
     @POST("consumers/" + groupName)
-    Call<Consumer> createCustomer(@Body Consumer consumer);
+    Call<Consumer.CreatedConsumer> createCustomer(@Body Consumer.ConsumerToCreate consumer);
 
     @Headers({
             "Content-Type:application/vnd.kafka.json.v2+json"
     })
     @POST("consumers/" + groupName + "/instances/" + instance + "/subscription")
-    Call<Subscription> subscribe(@Body Subscription subscription);
+    Call<String> subscribe(@Body Subscription subscription);
 
     @DELETE("consumers/" + groupName + "/instances/" + instance)
     Call<String> destroyConsumerInstance();
@@ -65,7 +72,7 @@ public interface RestApi {
             "Content-Type:application/vnd.kafka.json.v2+json"
     })
     @POST("consumers/" + groupName + "/instances/" + instance + "/assignments")
-    Call<Partitions> assignPartition(@Body Partitions partitions);
+    Call<String> assignPartition(@Body Partitions partitions);
 
     @Headers({
             "Accept:application/vnd.kafka.json.v2+json"
@@ -96,4 +103,16 @@ public interface RestApi {
     })
     @GET("v3/clusters/" + clusterId + "/consumer-groups/" + consumerGroupId + "/consumers/" + instance)
     Call<String> getConsumer();
+
+    @Headers({
+            "Content-Type:application/vnd.kafka.json.v2+json"
+    })
+    @POST("consumers/" + groupName + "/instances/" + instance + "/positions/beginning")
+    Call<String> seekToFirstOffset(@Body Partitions partitions);
+
+    @Headers({
+            "Content-Type:application/vnd.kafka.json.v2+json"
+    })
+    @POST("consumers/" + groupName + "/instances/" + instance + "/positions/end")
+    Call<String> seekToLastOffset(@Body Partitions partitions);
 }
