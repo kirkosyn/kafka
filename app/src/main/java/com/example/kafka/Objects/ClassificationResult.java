@@ -1,7 +1,5 @@
 package com.example.kafka.Objects;
 
-import com.google.gson.annotations.SerializedName;
-
 public class ClassificationResult {
     private Object topic;
     private Key key;
@@ -32,6 +30,10 @@ public class ClassificationResult {
     public static class Value {
         private String label;
 
+        public Value(String label) {
+            this.label = label;
+        }
+
         public String getLabel() {
             return label;
         }
@@ -39,6 +41,10 @@ public class ClassificationResult {
 
     public static class Key {
         private String id;
+
+        public Key(String id) {
+            this.id = id;
+        }
 
         public String getId() {
             return id;

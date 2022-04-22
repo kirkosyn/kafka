@@ -1,5 +1,7 @@
 package com.example.kafka.Objects;
 
+import java.util.List;
+
 public class Consumer {
     public static class ConsumerToCreate {
         private String name;
@@ -31,6 +33,134 @@ public class Consumer {
 
         public String getBase_uri() {
             return base_uri;
+        }
+    }
+
+    public static class ConsumersList {
+        private String kind;
+        private MetadataGroup metadata;
+        private List<ConsumerObject> data;
+
+        public ConsumersList(String kind, MetadataGroup metadata, List<ConsumerObject> data) {
+            this.kind = kind;
+            this.metadata = metadata;
+            this.data = data;
+        }
+
+        public String getKind() {
+            return kind;
+        }
+
+        public MetadataGroup getMetadata() {
+            return metadata;
+        }
+
+        public List<ConsumerObject> getData() {
+            return data;
+        }
+    }
+
+    public static class ConsumerObject {
+        private String kind;
+        private MetadataConsumer metadata;
+        private String cluster_id;
+        private String consumer_group_id;
+        private String consumer_id;
+        private String instance_id;
+        private String client_id;
+        private Assignments assignments;
+
+        public ConsumerObject(String kind, MetadataConsumer metadata, String cluster_id,
+                              String consumer_group_id, String consumer_id, String instance_id,
+                              String client_id, Assignments assignments) {
+            this.kind = kind;
+            this.metadata = metadata;
+            this.cluster_id = cluster_id;
+            this.consumer_group_id = consumer_group_id;
+            this.consumer_id = consumer_id;
+            this.instance_id = instance_id;
+            this.client_id = client_id;
+            this.assignments = assignments;
+        }
+
+        public String getKind() {
+            return kind;
+        }
+
+        public MetadataConsumer getMetadata() {
+            return metadata;
+        }
+
+        public String getCluster_id() {
+            return cluster_id;
+        }
+
+        public String getConsumer_group_id() {
+            return consumer_group_id;
+        }
+
+        public String getConsumer_id() {
+            return consumer_id;
+        }
+
+        public String getInstance_id() {
+            return instance_id;
+        }
+
+        public String getClient_id() {
+            return client_id;
+        }
+
+        public Assignments getAssignments() {
+            return assignments;
+        }
+    }
+
+    public static class MetadataGroup {
+        private String kind;
+        private String next;
+
+        public MetadataGroup(String kind, String next) {
+            this.kind = kind;
+            this.next = next;
+        }
+
+        public String getKind() {
+            return kind;
+        }
+
+        public String getNext() {
+            return next;
+        }
+    }
+
+    public static class MetadataConsumer {
+        private String self;
+        private String resource_name;
+
+        public MetadataConsumer(String self, String resource_name) {
+            this.self = self;
+            this.resource_name = resource_name;
+        }
+
+        public String getSelf() {
+            return self;
+        }
+
+        public String getResource_name() {
+            return resource_name;
+        }
+    }
+
+    public static class Assignments {
+        private String related;
+
+        public Assignments(String related) {
+            this.related = related;
+        }
+
+        public String getRelated() {
+            return related;
         }
     }
 }
